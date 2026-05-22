@@ -1,261 +1,211 @@
 /**
- * 消息处理器
- *
- * 处理接收到的 QQ 消息事件，包含：
- * - 命令解析与分发
- * - CD 冷却管理
- * - 消息发送工具函数
- *
- * 最佳实践：将不同类型的业务逻辑拆分到不同的 handler 文件中，
- * 保持每个文件职责单一。
+ * 消息处理器 — 群文件上传与 /clean 命令
  */
 
-import type { OB11Message, OB11PostSendMsg } from 'napcat-types/napcat-onebot';
+import type { OB11Message, OB11MessageFile, OB11PostSendMsg } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
+import { ConfigLoader } from '../config/loader';
+import {
+  createActionExecutor,
+  type ActionResult,
+} from '../core/action-executor';
+import { fileKindFromFileName } from '../core/file-kind';
+import { scanGroupFiles, createScanner } from '../core/group-file-scanner';
+import { resolveNotificationMessage } from '../core/notifications';
+import { toMs } from '../core/parse-timestamp';
+import { runRules } from '../core/rule-engine';
+import { sortRules } from '../core/rule-engine-helpers';
 import { pluginState } from '../core/state';
+import type { GlobalConfig, GroupFileRule, ScannedFile, TriggerContext } from '../types';
 
-// ==================== CD 冷却管理 ====================
+type OB11MessageFileSegment = OB11MessageFile & {
+  data: OB11MessageFile['data'] & {
+    file_id?: string;
+    file_size?: number;
+  };
+};
 
-/** CD 冷却记录 key: `${groupId}:${command}`, value: 过期时间戳 */
-const cooldownMap = new Map<string, number>();
-
-/**
- * 检查是否在 CD 中
- * @returns 剩余秒数，0 表示可用
- */
-function getCooldownRemaining(groupId: number | string, command: string): number {
-    const cdSeconds = pluginState.config.cooldownSeconds ?? 60;
-    if (cdSeconds <= 0) return 0;
-
-    const key = `${groupId}:${command}`;
-    const expireTime = cooldownMap.get(key);
-    if (!expireTime) return 0;
-
-    const remaining = Math.ceil((expireTime - Date.now()) / 1000);
-    if (remaining <= 0) {
-        cooldownMap.delete(key);
-        return 0;
-    }
-    return remaining;
+function scannedFileFromUpload(
+  event: OB11Message,
+  seg: OB11MessageFileSegment,
+): ScannedFile | null {
+  const fileId = seg.data?.file_id;
+  if (!fileId) return null;
+  const fileName = seg.data?.name || seg.data?.file || 'unknown';
+  const sizeBytes = Number(seg.data?.file_size) || 0;
+  const updatedAt = toMs(Number(event.time) || 0);
+  return {
+    fileId: String(fileId),
+    fileName: String(fileName),
+    sizeBytes,
+    updatedAt,
+    parentFolderId: '/',
+    kind: fileKindFromFileName(String(fileName)),
+  };
 }
 
-/** 设置 CD 冷却 */
-function setCooldown(groupId: number | string, command: string): void {
-    const cdSeconds = pluginState.config.cooldownSeconds ?? 60;
-    if (cdSeconds <= 0) return;
-    cooldownMap.set(`${groupId}:${command}`, Date.now() + cdSeconds * 1000);
+function findFileSegment(event: OB11Message): OB11MessageFileSegment | undefined {
+  const segs = event.message;
+  if (!Array.isArray(segs)) return undefined;
+  const seg = segs.find((s) => s.type === 'file');
+  if (!seg || seg.type !== 'file') return undefined;
+  return seg as OB11MessageFileSegment;
+}
+
+function mapActionResult(result: ActionResult): 'moved' | 'deleted' | 'skipped' | 'error' {
+  if (!result.ok) return 'error';
+  if ('dryRun' in result) return 'skipped';
+  return result.action;
+}
+
+function resolveMaxFilesScanned(
+  rules: GroupFileRule[],
+  global: GlobalConfig,
+  ctx: TriggerContext,
+): number | undefined {
+  const active = rules.filter(
+    (r) => r.enabled && r.triggers.some((t) => t.type === ctx),
+  );
+  let max: number | undefined = global.defaults?.limits?.maxFilesScannedPerRun;
+  for (const rule of active) {
+    const limit =
+      rule.limits?.maxFilesScannedPerRun ??
+      global.defaults?.limits?.maxFilesScannedPerRun;
+    if (limit !== undefined) {
+      max = max === undefined ? limit : Math.max(max, limit);
+    }
+  }
+  return max;
 }
 
 // ==================== 消息发送工具 ====================
 
-/**
- * 发送消息（通用）
- * 根据消息类型自动发送到群或私聊
- *
- * @param ctx 插件上下文
- * @param event 原始消息事件（用于推断回复目标）
- * @param message 消息内容（支持字符串或消息段数组）
- */
 export async function sendReply(
-    ctx: NapCatPluginContext,
-    event: OB11Message,
-    message: OB11PostSendMsg['message']
+  ctx: NapCatPluginContext,
+  event: OB11Message,
+  message: OB11PostSendMsg['message'],
 ): Promise<boolean> {
-    try {
-        const params: OB11PostSendMsg = {
-            message,
-            message_type: event.message_type,
-            ...(event.message_type === 'group' && event.group_id
-                ? { group_id: String(event.group_id) }
-                : {}),
-            ...(event.message_type === 'private' && event.user_id
-                ? { user_id: String(event.user_id) }
-                : {}),
-        };
-        await ctx.actions.call('send_msg', params, ctx.adapterName, ctx.pluginManager.config);
-        return true;
-    } catch (error) {
-        pluginState.logger.error('发送消息失败:', error);
-        return false;
-    }
-}
-
-/**
- * 发送群消息
- */
-export async function sendGroupMessage(
-    ctx: NapCatPluginContext,
-    groupId: number | string,
-    message: OB11PostSendMsg['message']
-): Promise<boolean> {
-    try {
-        const params: OB11PostSendMsg = {
-            message,
-            message_type: 'group',
-            group_id: String(groupId),
-        };
-        await ctx.actions.call('send_msg', params, ctx.adapterName, ctx.pluginManager.config);
-        return true;
-    } catch (error) {
-        pluginState.logger.error('发送群消息失败:', error);
-        return false;
-    }
-}
-
-/**
- * 发送私聊消息
- */
-export async function sendPrivateMessage(
-    ctx: NapCatPluginContext,
-    userId: number | string,
-    message: OB11PostSendMsg['message']
-): Promise<boolean> {
-    try {
-        const params: OB11PostSendMsg = {
-            message,
-            message_type: 'private',
-            user_id: String(userId),
-        };
-        await ctx.actions.call('send_msg', params, ctx.adapterName, ctx.pluginManager.config);
-        return true;
-    } catch (error) {
-        pluginState.logger.error('发送私聊消息失败:', error);
-        return false;
-    }
-}
-
-// ==================== 合并转发消息 ====================
-
-/** 合并转发消息节点 */
-export interface ForwardNode {
-    type: 'node';
-    data: {
-        nickname: string;
-        user_id?: string;
-        content: Array<{ type: string; data: Record<string, unknown> }>;
+  try {
+    const params: OB11PostSendMsg = {
+      message,
+      message_type: event.message_type,
+      ...(event.message_type === 'group' && event.group_id
+        ? { group_id: String(event.group_id) }
+        : {}),
+      ...(event.message_type === 'private' && event.user_id
+        ? { user_id: String(event.user_id) }
+        : {}),
     };
+    await ctx.actions.call('send_msg', params, ctx.adapterName, ctx.pluginManager.config);
+    return true;
+  } catch (error) {
+    pluginState.logger.error('发送消息失败:', error);
+    return false;
+  }
 }
 
-/**
- * 发送合并转发消息
- * @param ctx 插件上下文
- * @param target 群号或用户 ID
- * @param isGroup 是否为群消息
- * @param nodes 合并转发节点列表
- */
-export async function sendForwardMsg(
-    ctx: NapCatPluginContext,
-    target: number | string,
-    isGroup: boolean,
-    nodes: ForwardNode[],
+export async function sendGroupMessage(
+  ctx: NapCatPluginContext,
+  groupId: number | string,
+  message: OB11PostSendMsg['message'],
 ): Promise<boolean> {
-    try {
-        const actionName = isGroup ? 'send_group_forward_msg' : 'send_private_forward_msg';
-        const params: Record<string, unknown> = { message: nodes };
-        if (isGroup) {
-            params.group_id = String(target);
-        } else {
-            params.user_id = String(target);
-        }
-        await ctx.actions.call(
-            actionName as 'send_group_forward_msg',
-            params as never,
-            ctx.adapterName,
-            ctx.pluginManager.config,
-        );
-        return true;
-    } catch (error) {
-        pluginState.logger.error('发送合并转发消息失败:', error);
-        return false;
-    }
+  try {
+    const params: OB11PostSendMsg = {
+      message,
+      message_type: 'group',
+      group_id: String(groupId),
+    };
+    await ctx.actions.call('send_msg', params, ctx.adapterName, ctx.pluginManager.config);
+    return true;
+  } catch (error) {
+    pluginState.logger.error('发送群消息失败:', error);
+    return false;
+  }
 }
 
 // ==================== 权限检查 ====================
 
-/**
- * 检查群聊中是否有管理员权限
- * 私聊消息默认返回 true
- */
 export function isAdmin(event: OB11Message): boolean {
-    if (event.message_type !== 'group') return true;
-    const role = (event.sender as Record<string, unknown>)?.role;
-    return role === 'admin' || role === 'owner';
+  if (event.message_type !== 'group') return true;
+  const role = (event.sender as Record<string, unknown>)?.role;
+  return role === 'admin' || role === 'owner';
 }
 
 // ==================== 消息处理主函数 ====================
 
-/**
- * 消息处理主函数
- * 在这里实现你的命令处理逻辑
- */
-export async function handleMessage(ctx: NapCatPluginContext, event: OB11Message): Promise<void> {
-    try {
-        const rawMessage = event.raw_message || '';
-        const messageType = event.message_type;
-        const groupId = event.group_id;
-        const userId = event.user_id;
+export async function handleMessage(
+  ctx: NapCatPluginContext,
+  event: OB11Message,
+): Promise<void> {
+  try {
+    if (event.message_type !== 'group' || !event.group_id) return;
 
-        pluginState.ctx.logger.debug(`收到消息: ${rawMessage} | 类型: ${messageType}`);
+    const groupId = String(event.group_id);
+    const rawMessage = (event.raw_message || '').trim();
+    const loader = new ConfigLoader(ctx.dataPath);
+    const global = loader.loadGlobal();
 
-        // 群消息：检查该群是否启用
-        if (messageType === 'group' && groupId) {
-            if (!pluginState.isGroupEnabled(String(groupId))) return;
-        }
+    const fileSeg = findFileSegment(event);
+    if (fileSeg) {
+      if (!global.enabled) return;
+      const group = loader.loadGroup(groupId);
+      if (!group || !group.enabled) return;
 
-        // 检查命令前缀
-        const prefix = pluginState.config.commandPrefix || '#cmd';
-        if (!rawMessage.startsWith(prefix)) return;
+      const scannedFile = scannedFileFromUpload(event, fileSeg);
+      if (!scannedFile) return;
 
-        // 解析命令参数
-        const args = rawMessage.slice(prefix.length).trim().split(/\s+/);
-        const subCommand = args[0]?.toLowerCase() || '';
-
-        // TODO: 在这里实现你的命令处理逻辑
-        switch (subCommand) {
-            case 'help': {
-                const helpText = [
-                    `[= 插件帮助 =]`,
-                    `${prefix} help - 显示帮助信息`,
-                    `${prefix} ping - 测试连通性`,
-                    `${prefix} status - 查看运行状态`,
-                ].join('\n');
-                await sendReply(ctx, event, helpText);
-                break;
-            }
-
-            case 'ping': {
-                // 群消息检查 CD
-                if (messageType === 'group' && groupId) {
-                    const remaining = getCooldownRemaining(groupId, 'ping');
-                    if (remaining > 0) {
-                        await sendReply(ctx, event, `请等待 ${remaining} 秒后再试`);
-                        return;
-                    }
-                }
-
-                await sendReply(ctx, event, 'pong!');
-                if (messageType === 'group' && groupId) setCooldown(groupId, 'ping');
-                pluginState.incrementProcessed();
-                break;
-            }
-
-            case 'status': {
-                const statusText = [
-                    `[= 插件状态 =]`,
-                    `运行时长: ${pluginState.getUptimeFormatted()}`,
-                    `今日处理: ${pluginState.stats.todayProcessed}`,
-                    `总计处理: ${pluginState.stats.processed}`,
-                ].join('\n');
-                await sendReply(ctx, event, statusText);
-                break;
-            }
-
-            default: {
-                // TODO: 在这里处理你的主要命令逻辑
-                break;
-            }
-        }
-    } catch (error) {
-        pluginState.logger.error('处理消息时出错:', error);
+      const executor = createActionExecutor(ctx);
+      await runRules({
+        ctx: 'onFileUpload',
+        global,
+        groupId,
+        rules: group.rules,
+        files: [scannedFile],
+        execute: async (rule, file) => {
+          const result = await executor({ groupId, global, rule, file });
+          return mapActionResult(result);
+        },
+      });
+      return;
     }
+
+    if (rawMessage === '/clean') {
+      if (!global.enabled) return;
+      const group = loader.loadGroup(groupId);
+      if (!group || !group.enabled) return;
+
+      if (!isAdmin(event)) {
+        await sendReply(ctx, event, '无权限执行 /clean');
+        return;
+      }
+
+      const scanner = createScanner(ctx);
+      const maxFiles = resolveMaxFilesScanned(group.rules, global, 'manual');
+      const files = await scanGroupFiles(scanner, groupId, maxFiles);
+
+      const executor = createActionExecutor(ctx);
+      const stats = await runRules({
+        ctx: 'manual',
+        global,
+        groupId,
+        rules: group.rules,
+        files,
+        execute: async (rule, file) => {
+          const result = await executor({ groupId, global, rule, file });
+          return mapActionResult(result);
+        },
+      });
+
+      const manualRules = group.rules.filter(
+        (r) => r.enabled && r.triggers.some((t) => t.type === 'manual'),
+      );
+      const notifyRule = sortRules(manualRules)[0];
+      if (notifyRule) {
+        const msg = resolveNotificationMessage(notifyRule, global, stats);
+        if (msg) await sendReply(ctx, event, msg);
+      }
+    }
+  } catch (error) {
+    pluginState.logger.error('处理消息时出错:', error);
+  }
 }
