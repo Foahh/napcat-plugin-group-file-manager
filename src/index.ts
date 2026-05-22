@@ -12,11 +12,7 @@ export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
   pluginState.init(ctx);
   const loader = new ConfigLoader(ctx.dataPath);
   loader.ensureDirs();
-  const global = loader.loadGlobal();
-  if (!global.enabled) {
-    ctx.logger.info('群文件管理插件已加载');
-    return;
-  }
+  loader.loadGlobal();
   startScheduler(ctx);
   ctx.logger.info('群文件管理插件已启动');
 };
@@ -33,5 +29,5 @@ export const plugin_cleanup: PluginModule['plugin_cleanup'] = async (ctx) => {
   ctx.logger.info('群文件管理插件已卸载');
 };
 
-export const plugin_get_config = async () => ({ enabled: true });
+export const plugin_get_config = async () => ({});
 export const plugin_set_config = async () => {};

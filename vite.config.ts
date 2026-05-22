@@ -31,11 +31,6 @@ function copyDirRecursive(src: string, dest: string) {
     }
 }
 
-/**
- * 构建后自动复制资源的 Vite 插件
- * - 生成精简的 package.json（只保留运行时必要字段）
- * - 复制 templates 目录（如果存在）
- */
 function copyAssetsPlugin() {
     return {
         name: 'copy-assets',

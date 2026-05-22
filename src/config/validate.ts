@@ -331,9 +331,8 @@ function validateDefaults(raw: unknown): NonNullable<GlobalConfig['defaults']> {
 
 export function validateGlobalConfig(raw: unknown): GlobalConfig {
   if (!isRecord(raw)) throw new Error('Global config must be an object');
-  rejectUnknown(raw, ['enabled', 'defaults']);
-  const enabled = requireBoolean(raw.enabled, 'enabled');
-  const out: GlobalConfig = { enabled };
+  rejectUnknown(raw, ['defaults']);
+  const out: GlobalConfig = {};
   if (raw.defaults !== undefined) out.defaults = validateDefaults(raw.defaults);
   return out;
 }

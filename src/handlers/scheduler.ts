@@ -31,8 +31,6 @@ function resolveMaxFilesScanned(
 async function tickSchedule(ctx: NapCatPluginContext): Promise<void> {
   const loader = new ConfigLoader(ctx.dataPath);
   const global = loader.loadGlobal();
-  if (!global.enabled) return;
-
   const now = Date.now();
   const scanner = createScanner(ctx);
   const executor = createActionExecutor(ctx);

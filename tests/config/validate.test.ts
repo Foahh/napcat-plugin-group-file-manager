@@ -30,6 +30,6 @@ describe('validateGroupConfig', () => {
   });
 
   it('rejects unknown top-level keys', () => {
-    expect(() => validateGlobalConfig({ enabled: true, extra: 1 })).toThrow(/unknown/i);
+    expect(() => validateGlobalConfig({ defaults: { dryRun: false }, extra: 1 })).toThrow(/unknown/i);
   });
 });

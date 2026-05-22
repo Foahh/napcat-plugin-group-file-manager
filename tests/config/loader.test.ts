@@ -8,7 +8,7 @@ describe('ConfigLoader', () => {
   let tmp: string;
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gfm-'));
-    fs.writeFileSync(path.join(tmp, 'global.json'), JSON.stringify({ enabled: true }));
+    fs.writeFileSync(path.join(tmp, 'global.json'), JSON.stringify({ defaults: { dryRun: false } }));
     fs.mkdirSync(path.join(tmp, 'groups'));
     fs.writeFileSync(
       path.join(tmp, 'groups', '111.json'),
@@ -29,7 +29,7 @@ describe('ConfigLoader', () => {
   it('loads global and group by filename', () => {
     const loader = new ConfigLoader(tmp);
     const g = loader.loadGlobal();
-    expect(g.enabled).toBe(true);
+    expect(g.defaults?.dryRun).toBe(false);
     const groups = loader.loadAllGroups();
     expect(groups.get('111')?.rules).toHaveLength(1);
   });

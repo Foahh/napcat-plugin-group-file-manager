@@ -24,7 +24,6 @@ const baseRule = (overrides: Partial<GroupFileRule> = {}): GroupFileRule => ({
 });
 
 const baseGlobal = (overrides: Partial<GlobalConfig> = {}): GlobalConfig => ({
-  enabled: true,
   ...overrides,
 });
 

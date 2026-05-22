@@ -45,7 +45,7 @@ describe('findFreeFileName', () => {
 describe('executeAction', () => {
   it('dryRun: true → no API calls, returns { ok: true, dryRun: true }', async () => {
     const api = mockApi();
-    const global: GlobalConfig = { enabled: true, defaults: { dryRun: false } };
+    const global: GlobalConfig = { defaults: { dryRun: false } };
     const rule: GroupFileRule = { ...baseRule, dryRun: true, action: { type: 'delete' } };
 
     const result = await executeAction(api, { groupId: '12345', global, rule, file });
@@ -58,7 +58,7 @@ describe('executeAction', () => {
 
   it('delete → calls deleteGroupFile', async () => {
     const api = mockApi();
-    const global: GlobalConfig = { enabled: true };
+    const global: GlobalConfig = {};
     const rule: GroupFileRule = { ...baseRule, action: { type: 'delete' } };
 
     const result = await executeAction(api, { groupId: '12345', global, rule, file });
@@ -80,7 +80,7 @@ describe('executeAction', () => {
       getFolder: vi.fn().mockResolvedValue({ files: [], folders: [] }),
       createFolder: vi.fn().mockResolvedValue({ groupItem: { folder_id: 'new-dir' } }),
     });
-    const global: GlobalConfig = { enabled: true };
+    const global: GlobalConfig = {};
     const rule: GroupFileRule = {
       ...baseRule,
       action: { type: 'move', targetFolderName: 'Archive', createFolderIfMissing: true },
@@ -109,7 +109,7 @@ describe('executeAction', () => {
         folders: [],
       }),
     });
-    const global: GlobalConfig = { enabled: true };
+    const global: GlobalConfig = {};
     const rule: GroupFileRule = {
       ...baseRule,
       action: { type: 'move', targetFolderName: 'Archive', conflict: 'skip' },
@@ -133,7 +133,7 @@ describe('executeAction', () => {
         folders: [],
       }),
     });
-    const global: GlobalConfig = { enabled: true };
+    const global: GlobalConfig = {};
     const rule: GroupFileRule = {
       ...baseRule,
       action: { type: 'move', targetFolderName: 'Archive', conflict: 'rename' },

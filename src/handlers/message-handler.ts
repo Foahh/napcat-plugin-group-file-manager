@@ -137,7 +137,6 @@ export async function handleMessage(
 
     const fileSeg = findFileSegment(event);
     if (fileSeg) {
-      if (!global.enabled) return;
       const group = loader.loadGroup(groupId);
       if (!group || !group.enabled) return;
 
@@ -164,7 +163,6 @@ export async function handleMessage(
     }
 
     if (rawMessage === '/clean') {
-      if (!global.enabled) return;
       const group = loader.loadGroup(groupId);
       if (!group || !group.enabled) return;
 

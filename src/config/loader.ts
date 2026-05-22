@@ -17,7 +17,7 @@ export class ConfigLoader {
 
   loadGlobal(): GlobalConfig {
     const p = this.globalPath();
-    if (!fs.existsSync(p)) return { enabled: true };
+    if (!fs.existsSync(p)) return {};
     const raw = JSON.parse(fs.readFileSync(p, 'utf-8'));
     return validateGlobalConfig(raw);
   }

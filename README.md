@@ -38,7 +38,7 @@
 
 ### 3. 验证是否生效
 
-1. 确认 `global.json` 中 `"enabled": true`，且对应群的 `groups/{群号}.json` 中 `"enabled": true`。
+1. 确认对应群的 `groups/{群号}.json` 中 `"enabled": true`。
 2. 首次建议将 `global.json` 的 `defaults.dryRun` 设为 `true`，观察日志与群内摘要，确认规则匹配正确后再改回 `false`。
 3. 在群内上传一个 `.mp4` 测试文件（若使用示例规则），应被移动到 `Multimedia` 文件夹。
 4. 群管理员在群内发送 `/clean`，可触发带 `manual` 触发的规则（如示例中的过期视频清理）。
@@ -78,10 +78,9 @@
 
 | 文件 | 作用 |
 |------|------|
-| `global.json` | 总开关、`defaults` 默认值（dryRun、限额、通知等）。 |
+| `global.json` | `defaults` 默认值（dryRun、限额、通知等）。 |
 | `groups/{群号}.json` | 该群的规则列表；文件名即群号（不含 `.json`）。 |
 
-- `global.json` 中 `enabled: false` → 插件不执行任何操作。
 - 某群无对应 JSON，或该群配置 `enabled: false` → 不处理该群。
 - 配置在每次上传、定时任务、`/clean` 时重新读取，改完保存即可生效。
 
@@ -89,7 +88,6 @@
 
 ```json
 {
-  "enabled": true,
   "defaults": {
     "createFolderIfMissing": true,
     "dryRun": false,

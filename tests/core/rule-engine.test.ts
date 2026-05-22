@@ -24,7 +24,7 @@ function baseRule(overrides: Partial<GroupFileRule> = {}): GroupFileRule {
   };
 }
 
-const global: GlobalConfig = { enabled: true };
+const global: GlobalConfig = {};
 
 describe('runRules', () => {
   it('dry-run: counts match without calling execute', async () => {

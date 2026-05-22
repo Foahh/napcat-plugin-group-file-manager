@@ -13,7 +13,6 @@ export type ByteSize =
   | `${number}GB`;
 
 export type GlobalConfig = {
-  enabled: boolean;
   defaults?: {
     dryRun?: boolean;
     ttl?: Duration;

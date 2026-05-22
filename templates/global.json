@@ -1,5 +1,4 @@
 {
-  "enabled": true,
   "defaults": {
     "createFolderIfMissing": true,
     "dryRun": false,

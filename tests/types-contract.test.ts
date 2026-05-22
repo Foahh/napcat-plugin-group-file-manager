@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import type { GlobalConfig, GroupFileRule, ScannedFile } from '../src/types';
 
 describe('types contract', () => {
-  it('GlobalConfig has enabled', () => {
-    const g: GlobalConfig = { enabled: true };
-    expect(g.enabled).toBe(true);
+  it('GlobalConfig accepts defaults', () => {
+    const g: GlobalConfig = { defaults: { dryRun: true } };
+    expect(g.defaults?.dryRun).toBe(true);
   });
 
   it('ScannedFile has required fields', () => {
