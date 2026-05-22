@@ -1,38 +1,163 @@
-/**
- * 类型定义文件
- * 定义插件内部使用的接口和类型
- *
- * 注意：OneBot 相关类型（OB11Message, OB11PostSendMsg 等）
- * 以及插件框架类型（NapCatPluginContext, PluginModule 等）
- * 均来自 napcat-types 包，无需在此重复定义。
- */
+export type DurationUnit = 'seconds' | 'minutes' | 'hours' | 'days';
 
-// ==================== 插件配置 ====================
+export type Duration = {
+  value: number;
+  unit: DurationUnit;
+};
 
-/**
- * 插件主配置接口
- * 在此定义你的插件所需的所有配置项
- */
-export interface PluginConfig {
-    /** 全局开关：是否启用插件功能 */
-    enabled: boolean;
-    /** 调试模式：启用后输出详细日志 */
-    debug: boolean;
-    /** 触发命令前缀，默认为 #cmd */
-    commandPrefix: string;
-    /** 同一命令请求冷却时间（秒），0 表示不限制 */
-    cooldownSeconds: number;
-    /** 按群的单独配置 */
-    groupConfigs: Record<string, GroupConfig>;
-    // TODO: 在这里添加你的插件配置项
-}
+export type ByteSize =
+  | number
+  | `${number}B`
+  | `${number}KB`
+  | `${number}MB`
+  | `${number}GB`;
 
-/**
- * 群配置
- */
-export interface GroupConfig {
-    /** 是否启用此群的功能 */
-    enabled?: boolean;
-    // TODO: 在这里添加群级别的配置项
-}
+export type GlobalConfig = {
+  enabled: boolean;
+  defaults?: {
+    dryRun?: boolean;
+    ttl?: Duration;
+    createFolderIfMissing?: boolean;
+    limits?: {
+      maxFilesScannedPerRun?: number;
+      maxActionsPerRun?: number;
+    };
+    notification?: NotificationConfig;
+  };
+};
 
+export type GroupConfig = {
+  enabled: boolean;
+  rules: GroupFileRule[];
+};
+
+export type GroupFileRule = {
+  id: string;
+  name?: string;
+  enabled: boolean;
+  priority?: number;
+  triggers: RuleTrigger[];
+  match: FileMatcher;
+  ttl?: Duration;
+  action: FileAction;
+  stopProcessingOnMatch?: boolean;
+  dryRun?: boolean;
+  limits?: {
+    maxFilesScannedPerRun?: number;
+    maxActionsPerRun?: number;
+  };
+  notification?: NotificationConfig;
+};
+
+export type RuleTrigger =
+  | ManualTrigger
+  | ScheduleTrigger
+  | OnFileUploadTrigger;
+
+export type ManualTrigger = { type: 'manual' };
+
+export type ScheduleTrigger = {
+  type: 'schedule';
+  every: Duration;
+};
+
+export type OnFileUploadTrigger = { type: 'onFileUpload' };
+
+export type FileMatcher = {
+  all?: FileCondition[];
+  any?: FileCondition[];
+  none?: FileCondition[];
+};
+
+export type FileCondition =
+  | FileNameCondition
+  | FileExtensionCondition
+  | FileSizeCondition
+  | FileFolderCondition
+  | FileKindCondition;
+
+export type FileNameCondition = {
+  type: 'name';
+  match: 'glob' | 'regex' | 'contains' | 'equals';
+  value: string;
+  caseSensitive?: boolean;
+};
+
+export type FileExtensionCondition = {
+  type: 'extension';
+  values: string[];
+  caseSensitive?: boolean;
+};
+
+export type FileSizeCondition =
+  | {
+      type: 'size';
+      operator: 'gt' | 'gte' | 'lt' | 'lte';
+      value: ByteSize;
+    }
+  | {
+      type: 'size';
+      operator: 'between';
+      min: ByteSize;
+      max: ByteSize;
+    };
+
+export type FileFolderCondition = {
+  type: 'folder';
+  folder: GroupFileFolderSelector;
+};
+
+export type FileKindCondition = {
+  type: 'kind';
+  values: FileKind[];
+};
+
+export type FileKind =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'archive'
+  | 'other';
+
+export type GroupFileFolderSelector =
+  | { type: 'all' }
+  | { type: 'root' }
+  | { type: 'folder'; name: string };
+
+export type FileAction = MoveFileAction | DeleteFileAction;
+
+export type MoveFileAction = {
+  type: 'move';
+  targetFolderName: string;
+  createFolderIfMissing?: boolean;
+  conflict?: 'skip' | 'rename' | 'overwrite';
+};
+
+export type DeleteFileAction = { type: 'delete' };
+
+export type NotificationConfig = {
+  enabled?: boolean;
+  level?: 'silent' | 'summary' | 'verbose';
+};
+
+export type ScannedFile = {
+  fileId: string;
+  fileName: string;
+  sizeBytes: number;
+  updatedAt: number;
+  parentFolderId: string;
+  folderName?: string;
+  kind: FileKind;
+};
+
+export type TriggerContext = 'onFileUpload' | 'schedule' | 'manual';
+
+export type RunStats = {
+  scanned: number;
+  matched: number;
+  moved: number;
+  deleted: number;
+  skipped: number;
+  errors: number;
+};
