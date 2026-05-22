@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "defaults": {
+    "createFolderIfMissing": true,
+    "dryRun": false,
+    "limits": {
+      "maxFilesScannedPerRun": 500,
+      "maxActionsPerRun": 50
+    },
+    "notification": {
+      "enabled": true,
+      "level": "summary"
+    }
+  }
+}
