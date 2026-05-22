@@ -1,0 +1,38 @@
+{
+  "enabled": true,
+  "rules": [
+    {
+      "id": "move-multimedia",
+      "enabled": true,
+      "priority": 10,
+      "triggers": [{ "type": "onFileUpload" }],
+      "match": {
+        "any": [
+          { "type": "extension", "values": ["mp4", "mp3", "avi", "mkv"] }
+        ]
+      },
+      "action": {
+        "type": "move",
+        "targetFolderName": "Multimedia",
+        "conflict": "skip"
+      }
+    },
+    {
+      "id": "cleanup-video-7d",
+      "enabled": true,
+      "priority": 20,
+      "triggers": [
+        { "type": "schedule", "every": { "value": 6, "unit": "hours" } },
+        { "type": "manual" }
+      ],
+      "match": {
+        "all": [
+          { "type": "extension", "values": ["mp4"] },
+          { "type": "kind", "values": ["video"] }
+        ]
+      },
+      "ttl": { "value": 7, "unit": "days" },
+      "action": { "type": "delete" }
+    }
+  ]
+}
