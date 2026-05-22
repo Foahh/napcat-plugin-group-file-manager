@@ -15,6 +15,7 @@ export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
   loader.loadGlobal();
   startScheduler(ctx);
   ctx.logger.info('群文件管理插件已启动');
+  ctx.logger.debug('插件数据路径:', ctx.dataPath);
 };
 
 export const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx, event) => {
