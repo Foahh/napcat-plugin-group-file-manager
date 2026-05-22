@@ -1,7 +1,3 @@
-/**
- * 消息处理器 — 群文件上传与 /clean 命令
- */
-
 import type { OB11Message, OB11MessageFile, OB11PostSendMsg } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { ConfigLoader } from '../config/loader';
@@ -78,8 +74,6 @@ function resolveMaxFilesScanned(
   return max;
 }
 
-// ==================== 消息发送工具 ====================
-
 export async function sendReply(
   ctx: NapCatPluginContext,
   event: OB11Message,
@@ -123,15 +117,11 @@ export async function sendGroupMessage(
   }
 }
 
-// ==================== 权限检查 ====================
-
 export function isAdmin(event: OB11Message): boolean {
   if (event.message_type !== 'group') return true;
   const role = (event.sender as Record<string, unknown>)?.role;
   return role === 'admin' || role === 'owner';
 }
-
-// ==================== 消息处理主函数 ====================
 
 export async function handleMessage(
   ctx: NapCatPluginContext,
@@ -152,7 +142,10 @@ export async function handleMessage(
       if (!group || !group.enabled) return;
 
       const scannedFile = scannedFileFromUpload(event, fileSeg);
-      if (!scannedFile) return;
+      if (!scannedFile) {
+        ctx.logger.warn(`群 ${groupId} 文件消息缺少 file_id，跳过规则处理`);
+        return;
+      }
 
       const executor = createActionExecutor(ctx);
       await runRules({
@@ -161,6 +154,7 @@ export async function handleMessage(
         groupId,
         rules: group.rules,
         files: [scannedFile],
+        logger: ctx.logger,
         execute: async (rule, file) => {
           const result = await executor({ groupId, global, rule, file });
           return mapActionResult(result);
@@ -175,13 +169,12 @@ export async function handleMessage(
       if (!group || !group.enabled) return;
 
       if (!isAdmin(event)) {
-        await sendReply(ctx, event, '无权限执行 /clean');
         return;
       }
 
       const scanner = createScanner(ctx);
       const maxFiles = resolveMaxFilesScanned(group.rules, global, 'manual');
-      const files = await scanGroupFiles(scanner, groupId, maxFiles);
+      const files = await scanGroupFiles(scanner, groupId, maxFiles, ctx.logger);
 
       const executor = createActionExecutor(ctx);
       const stats = await runRules({
@@ -190,6 +183,7 @@ export async function handleMessage(
         groupId,
         rules: group.rules,
         files,
+        logger: ctx.logger,
         execute: async (rule, file) => {
           const result = await executor({ groupId, global, rule, file });
           return mapActionResult(result);

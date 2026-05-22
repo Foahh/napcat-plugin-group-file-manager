@@ -1,4 +1,5 @@
 import { durationToMs } from '../config/parse-duration';
+import type { PluginLogger } from 'napcat-types/napcat-onebot/network/plugin/types';
 import type {
   GlobalConfig,
   GroupFileRule,
@@ -62,6 +63,16 @@ function applyExecuteResult(
   }
 }
 
+function logDryRunAction(
+  logger: PluginLogger | undefined,
+  rule: GroupFileRule,
+  file: ScannedFile,
+): void {
+  logger?.info(
+    `[dry-run] rule=${rule.id} file=${file.fileName} action=${rule.action.type}`,
+  );
+}
+
 export async function runRules(opts: {
   ctx: TriggerContext;
   global: GlobalConfig;
@@ -69,6 +80,7 @@ export async function runRules(opts: {
   rules: GroupFileRule[];
   files: ScannedFile[];
   now?: number;
+  logger?: PluginLogger;
   execute: (
     rule: GroupFileRule,
     file: ScannedFile,
@@ -106,14 +118,23 @@ export async function runRules(opts: {
 
       const dryRun = resolveDryRun(rule, opts.global);
       if (dryRun) {
+        logDryRunAction(opts.logger, rule, file);
         countDryRunAction(stats, rule);
         if (actionsRemaining !== undefined) actionsRemaining -= 1;
         if (stopOnMatch(rule)) break;
         continue;
       }
 
-      const result = await opts.execute(rule, file);
-      applyExecuteResult(stats, result);
+      try {
+        const result = await opts.execute(rule, file);
+        applyExecuteResult(stats, result);
+      } catch (error) {
+        opts.logger?.error(
+          `规则执行失败 rule=${rule.id} file=${file.fileName}:`,
+          error,
+        );
+        applyExecuteResult(stats, 'error');
+      }
       if (actionsRemaining !== undefined) actionsRemaining -= 1;
       if (stopOnMatch(rule)) break;
     }

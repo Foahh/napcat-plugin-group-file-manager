@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import type { PluginLogger } from 'napcat-types/napcat-onebot/network/plugin/types';
 import type { GlobalConfig, GroupConfig } from '../types';
 import { validateGlobalConfig, validateGroupConfig } from './validate';
 
@@ -28,7 +29,7 @@ export class ConfigLoader {
     return validateGroupConfig(raw);
   }
 
-  loadAllGroups(): Map<string, GroupConfig> {
+  loadAllGroups(logger?: PluginLogger): Map<string, GroupConfig> {
     const dir = this.groupsDir();
     const out = new Map<string, GroupConfig>();
     if (!fs.existsSync(dir)) return out;
@@ -38,8 +39,8 @@ export class ConfigLoader {
       try {
         const cfg = this.loadGroup(groupId);
         if (cfg) out.set(groupId, cfg);
-      } catch {
-        // caller logs; skip invalid file
+      } catch (error) {
+        logger?.warn(`群配置无效，已跳过 ${name}:`, error);
       }
     }
     return out;

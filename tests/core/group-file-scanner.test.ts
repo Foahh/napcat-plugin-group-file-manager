@@ -67,4 +67,27 @@ describe('scanGroupFiles', () => {
     expect(result).toHaveLength(2);
     expect(api.getFolder).not.toHaveBeenCalled();
   });
+
+  it('continues when a folder scan fails', async () => {
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+    const api = mockApi({
+      getRoot: vi.fn().mockResolvedValue({
+        files: [rootFile],
+        folders: [
+          { folder_id: 'bad', folder_name: 'Broken' },
+          { folder_id: 'dir1', folder_name: 'Videos' },
+        ],
+      }),
+      getFolder: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('folder unavailable'))
+        .mockResolvedValueOnce({ files: [subFile] }),
+    });
+
+    const result = await scanGroupFiles(api, '12345', undefined, logger as never);
+
+    expect(result).toHaveLength(2);
+    expect(result[1].fileId).toBe('f-sub');
+    expect(logger.warn).toHaveBeenCalled();
+  });
 });

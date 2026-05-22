@@ -1,7 +1,3 @@
-/**
- * 主调度器 — 60s tick，按规则间隔扫描群文件
- */
-
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { ConfigLoader } from '../config/loader';
 import { durationToMs } from '../config/parse-duration';
@@ -41,7 +37,7 @@ async function tickSchedule(ctx: NapCatPluginContext): Promise<void> {
   const scanner = createScanner(ctx);
   const executor = createActionExecutor(ctx);
 
-  for (const [groupId, group] of loader.loadAllGroups()) {
+  for (const [groupId, group] of loader.loadAllGroups(ctx.logger)) {
     if (group.enabled === false) continue;
 
     try {
@@ -58,7 +54,7 @@ async function tickSchedule(ctx: NapCatPluginContext): Promise<void> {
         if (now - pluginState.getLastRun(key) < everyMs) continue;
 
         const maxFiles = resolveMaxFilesScanned(rule, global);
-        const files = await scanGroupFiles(scanner, groupId, maxFiles);
+        const files = await scanGroupFiles(scanner, groupId, maxFiles, ctx.logger);
 
         await runRules({
           ctx: 'schedule',
@@ -67,6 +63,7 @@ async function tickSchedule(ctx: NapCatPluginContext): Promise<void> {
           rules: [rule],
           files,
           now,
+          logger: ctx.logger,
           execute: async (r, file) => {
             const result = await executor({ groupId, global, rule: r, file });
             return mapActionResult(result);

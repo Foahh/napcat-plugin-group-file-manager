@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { executeAction, type ActionApi } from '../../src/core/action-executor';
+import { executeAction, findFreeFileName, type ActionApi } from '../../src/core/action-executor';
 import type { GlobalConfig, GroupFileRule, ScannedFile } from '../../src/types';
 
 const file: ScannedFile = {
@@ -26,9 +26,21 @@ function mockApi(overrides?: Partial<ActionApi>): ActionApi {
     deleteFile: vi.fn().mockResolvedValue({}),
     createFolder: vi.fn().mockResolvedValue({ groupItem: { folder_id: 'new-dir' } }),
     moveFile: vi.fn().mockResolvedValue({ ok: true }),
+    renameFile: vi.fn().mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
+
+describe('findFreeFileName', () => {
+  it('returns original when no conflict', () => {
+    expect(findFreeFileName([], 'clip.mp4')).toBe('clip.mp4');
+  });
+
+  it('returns numbered suffix when name taken', () => {
+    const files = [{ file_id: 'x', file_name: 'clip.mp4', file_size: 1 }];
+    expect(findFreeFileName(files, 'clip.mp4')).toBe('clip (1).mp4');
+  });
+});
 
 describe('executeAction', () => {
   it('dryRun: true → no API calls, returns { ok: true, dryRun: true }', async () => {
@@ -108,5 +120,39 @@ describe('executeAction', () => {
     expect(result).toEqual({ ok: true, action: 'skipped', reason: 'conflict' });
     expect(api.createFolder).not.toHaveBeenCalled();
     expect(api.moveFile).not.toHaveBeenCalled();
+  });
+
+  it('conflict: rename → renames at source then moves', async () => {
+    const api = mockApi({
+      getRoot: vi.fn().mockResolvedValue({
+        files: [],
+        folders: [{ folder_id: 'dir1', folder_name: 'Archive' }],
+      }),
+      getFolder: vi.fn().mockResolvedValue({
+        files: [{ file_id: 'other', file_name: 'clip.mp4', file_size: 1 }],
+        folders: [],
+      }),
+    });
+    const global: GlobalConfig = { enabled: true };
+    const rule: GroupFileRule = {
+      ...baseRule,
+      action: { type: 'move', targetFolderName: 'Archive', conflict: 'rename' },
+    };
+
+    const result = await executeAction(api, { groupId: '12345', global, rule, file });
+
+    expect(result).toEqual({ ok: true, action: 'moved' });
+    expect(api.renameFile).toHaveBeenCalledWith({
+      group_id: '12345',
+      file_id: 'f1',
+      current_parent_directory: '/',
+      new_name: 'clip (1).mp4',
+    });
+    expect(api.moveFile).toHaveBeenCalledWith({
+      group_id: '12345',
+      file_id: 'f1',
+      current_parent_directory: '/',
+      target_parent_directory: 'dir1',
+    });
   });
 });

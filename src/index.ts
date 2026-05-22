@@ -6,7 +6,7 @@ import { pluginState } from './core/state';
 import { handleMessage } from './handlers/message-handler';
 import { startScheduler, stopScheduler } from './handlers/scheduler';
 
-export let plugin_config_ui = [] as PluginConfigSchema; // no WebUI
+export let plugin_config_ui = [] as PluginConfigSchema;
 
 export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
   pluginState.init(ctx);
@@ -14,7 +14,7 @@ export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
   loader.ensureDirs();
   const global = loader.loadGlobal();
   if (!global.enabled) {
-    ctx.logger.info('群文件管理插件已加载（全局 disabled）');
+    ctx.logger.info('群文件管理插件已加载');
     return;
   }
   startScheduler(ctx);

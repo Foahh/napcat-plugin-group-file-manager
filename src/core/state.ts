@@ -1,16 +1,9 @@
-/**
- * 全局状态管理模块（单例模式）
- *
- * 封装插件运行时上下文与调度相关状态。
- */
-
 import type { NapCatPluginContext, PluginLogger } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { ConfigLoader } from '../config/loader';
 
 class PluginState {
     private _ctx: NapCatPluginContext | null = null;
 
-    /** Per-rule last run timestamp; key `${groupId}:${ruleId}` */
     lastRunAt: Map<string, number> = new Map();
 
     schedulerTimer: ReturnType<typeof setInterval> | null = null;

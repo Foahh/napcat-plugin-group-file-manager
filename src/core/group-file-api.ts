@@ -64,3 +64,15 @@ export async function moveGroupFile(
 ) {
   return call<{ ok?: boolean }>(ctx, 'move_group_file', params);
 }
+
+export async function renameGroupFile(
+  ctx: NapCatPluginContext,
+  params: {
+    group_id: string;
+    file_id: string;
+    current_parent_directory: string;
+    new_name: string;
+  },
+) {
+  return call<{ ok?: boolean }>(ctx, 'rename_group_file', params);
+}

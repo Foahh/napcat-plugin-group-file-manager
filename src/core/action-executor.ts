@@ -5,6 +5,7 @@ import {
   getGroupFilesByFolder,
   getGroupRootFiles,
   moveGroupFile,
+  renameGroupFile,
   type GroupFileListItem,
   type GroupFolderItem,
 } from './group-file-api';
@@ -40,6 +41,12 @@ export type ActionApi = {
     current_parent_directory: string;
     target_parent_directory: string;
   }): Promise<{ ok?: boolean }>;
+  renameFile(params: {
+    group_id: string;
+    file_id: string;
+    current_parent_directory: string;
+    new_name: string;
+  }): Promise<{ ok?: boolean }>;
 };
 
 export type ExecuteActionOpts = {
@@ -67,7 +74,7 @@ function hasNameConflict(files: GroupFileListItem[], fileName: string): boolean 
   return files.some((f) => f.file_name === fileName);
 }
 
-function findFreeFileName(files: GroupFileListItem[], fileName: string): string {
+export function findFreeFileName(files: GroupFileListItem[], fileName: string): string {
   if (!hasNameConflict(files, fileName)) return fileName;
   const dot = fileName.lastIndexOf('.');
   const base = dot >= 0 ? fileName.slice(0, dot) : fileName;
@@ -135,8 +142,21 @@ async function executeMove(
     return { ok: true, action: 'skipped', reason: 'conflict' };
   }
 
-  if (conflict === 'rename') {
-    findFreeFileName(targetFiles, file.fileName);
+  if (conflict === 'rename' && hasNameConflict(targetFiles, file.fileName)) {
+    const newName = findFreeFileName(targetFiles, file.fileName);
+    if (newName === file.fileName) {
+      return { ok: true, action: 'skipped', reason: 'conflict' };
+    }
+    try {
+      await api.renameFile({
+        group_id: String(groupId),
+        file_id: file.fileId,
+        current_parent_directory: file.parentFolderId,
+        new_name: newName,
+      });
+    } catch {
+      return { ok: true, action: 'skipped', reason: 'conflict' };
+    }
   }
 
   try {
@@ -180,6 +200,7 @@ export function createActionApi(ctx: NapCatPluginContext): ActionApi {
     deleteFile: (groupId, fileId) => deleteGroupFile(ctx, groupId, fileId),
     createFolder: (groupName, folderName) => createGroupFileFolder(ctx, groupName, folderName),
     moveFile: (params) => moveGroupFile(ctx, params),
+    renameFile: (params) => renameGroupFile(ctx, params),
   };
 }
 
