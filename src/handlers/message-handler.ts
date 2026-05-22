@@ -142,7 +142,7 @@ export async function handleMessage(
 
       const scannedFile = scannedFileFromUpload(event, fileSeg);
       if (!scannedFile) {
-        ctx.logger.warn(`群 ${groupId} 文件消息缺少 file_id，跳过规则处理`);
+        ctx.logger.warn(`群组 ${groupId} 的文件消息缺少 file_id，跳过规则处理`);
         return;
       }
 

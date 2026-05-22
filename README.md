@@ -38,10 +38,10 @@
 
 ### 3. 验证是否生效
 
-1. 确认对应群的 `groups/{群号}.json` 中 `"enabled": true`。
-2. 首次建议将 `global.json` 的 `defaults.dryRun` 设为 `true`，观察日志与群内摘要，确认规则匹配正确后再改回 `false`。
-3. 在群内上传一个 `.mp4` 测试文件（若使用示例规则），应被移动到 `Multimedia` 文件夹。
-4. 群管理员在群内发送 `/clean`，可触发带 `manual` 触发的规则（如示例中的过期视频清理）。
+1. 确认对应群组的 `groups/{群号}.json` 中 `"enabled": true`。
+2. 首次建议将 `global.json` 的 `defaults.dryRun` 设为 `true`，观察日志与群组内摘要，确认规则匹配正确后再改回 `false`。
+3. 在群组内上传一个 `.mp4` 测试文件（若使用示例规则），应被移动到 `Multimedia` 文件夹。
+4. 群管理员在群组内发送 `/clean`，可触发带 `manual` 触发的规则（如示例中的过期视频清理）。
 
 ---
 
@@ -53,7 +53,7 @@
 | 定时清理 | 带 `schedule` 的规则按设定间隔全量扫描群文件并执行（内置每 60 秒检查是否到期）。 |
 | 手动清理 | 群管理员发送 `/clean`，执行带 `manual` 触发的规则。 |
 | 安全试运行 | `dryRun` 模式下只记录拟执行操作，不实际移动或删除。 |
-| 单群独立配置 | 每个群一份 `groups/{群号}.json`，互不影响。 |
+| 按群组独立配置 | 每个群组一份 `groups/{群号}.json`，互不影响。 |
 
 ---
 
@@ -79,9 +79,9 @@
 | 文件 | 作用 |
 |------|------|
 | `global.json` | `defaults` 默认值（dryRun、限额、通知等）。 |
-| `groups/{群号}.json` | 该群的规则列表；文件名即群号（不含 `.json`）。 |
+| `groups/{群号}.json` | 该群组的规则列表；文件名即群号（不含 `.json`）。 |
 
-- 某群无对应 JSON，或该群配置 `enabled: false` → 不处理该群。
+- 某群组无对应 JSON，或该群组配置 `enabled: false` → 不处理该群组。
 - 配置在每次上传、定时任务、`/clean` 时重新读取，改完保存即可生效。
 
 ### 全局配置 `global.json`
@@ -111,7 +111,7 @@
 | `defaults.limits.maxActionsPerRun` | 单次运行最多执行移动/删除次数。 |
 | `defaults.notification.level` | `silent` / `summary` / `verbose` |
 
-### 群规则 `groups/{群号}.json`
+### 群组规则 `groups/{群号}.json`
 
 完整示例见 [`examples/groups/123456789.json`](examples/groups/123456789.json)。结构如下：
 
@@ -211,7 +211,7 @@
 
 ---
 
-## 群命令 `/clean`
+## 群组命令 `/clean`
 
 | 项目 | 说明 |
 |------|------|
@@ -224,7 +224,7 @@
 
 ## 试运行（dry-run）
 
-不修改群文件，仅在日志（及可选群内通知）中记录拟执行操作。
+不修改群文件，仅在日志（及可选群组内通知）中记录拟执行操作。
 
 优先级（后者覆盖前者）：单条规则 `dryRun` → `global.defaults.dryRun` → 默认 `false`。
 

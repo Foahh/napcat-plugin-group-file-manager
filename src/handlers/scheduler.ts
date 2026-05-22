@@ -71,7 +71,7 @@ async function tickSchedule(ctx: NapCatPluginContext): Promise<void> {
         pluginState.setLastRun(key, now);
       }
     } catch (error) {
-      pluginState.logger.error(`调度执行失败 (群 ${groupId}):`, error);
+      pluginState.logger.error(`调度执行失败 (群组 ${groupId}):`, error);
     }
   }
 }

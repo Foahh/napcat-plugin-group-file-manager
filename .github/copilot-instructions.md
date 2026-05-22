@@ -411,7 +411,7 @@ const schema = ctx.NapCatConfig.combine(
 - **配置持久化**：通过 `pluginState.updateConfig()` / `pluginState.replaceConfig()` 保存
 - **数据持久化**：通过 `pluginState.loadDataFile()` / `pluginState.saveDataFile()` 读写业务数据文件
 - **机器人 QQ 号**：通过 `pluginState.selfId` 获取（init 时自动异步获取）
-- **群配置**：使用 `pluginState.isGroupEnabled(groupId)` 检查
+- **群文件配置**：使用 `pluginState.isGroupEnabled(groupId)` 检查
 - **定时器管理**：将定时器存入 `pluginState.timers` Map，cleanup 时会自动全部清理
 - **资源清理**：在 `plugin_cleanup` 中必须清理定时器、关闭连接，否则会导致内存泄漏
 - **数据存储**：使用 `ctx.dataPath` 获取插件专属数据目录

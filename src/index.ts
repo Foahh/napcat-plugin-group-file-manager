@@ -11,7 +11,7 @@ export let plugin_config_ui = [] as PluginConfigSchema;
 export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
   pluginState.init(ctx);
   const loader = new ConfigLoader(ctx.dataPath);
-  loader.ensureDirs();
+  loader.initTemplates(ctx.pluginPath, ctx.logger);
   loader.loadGlobal();
   startScheduler(ctx);
   ctx.logger.info('群文件管理插件已启动');

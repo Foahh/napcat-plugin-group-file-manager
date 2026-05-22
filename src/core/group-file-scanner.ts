@@ -56,7 +56,7 @@ export async function scanGroupFiles(
       }
     } catch (error) {
       logger?.warn(
-        `扫描群 ${groupId} 文件夹 ${folder.folder_name} (${folder.folder_id}) 失败，已跳过:`,
+        `扫描群组 ${groupId} 文件夹 ${folder.folder_name} (${folder.folder_id}) 失败，已跳过:`,
         error,
       );
     }
