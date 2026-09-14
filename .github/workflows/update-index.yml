@@ -220,7 +220,7 @@ jobs:
 
       # ── 通过 fork 提交 PR 到官方索引仓库 ─────────────────────────
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           path: plugin-index
           token: ${{ secrets.INDEX_PAT }}
