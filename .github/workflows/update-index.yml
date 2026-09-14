@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout plugin repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -165,7 +165,7 @@ jobs:
           echo "$SYNC_RESULT" | jq -r '.message // "已同步"'
 
       - name: Checkout index repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.INDEX_REPO }}
           ref: ${{ env.INDEX_BRANCH }}
